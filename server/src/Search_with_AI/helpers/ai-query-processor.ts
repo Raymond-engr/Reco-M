@@ -26,14 +26,84 @@ interface MovieResponse {
   explanation?: string;
 }
 
+// Configuration Interface
+interface MovieSearchConfig {
+  maxTitlesToSearch?: number;
+  cacheTTL?: number;
+  cacheEnabled?: boolean;
+  concurrentSearchLimit?: number;
+}
+
+// Simple In-Memory Cache
+class MovieSearchCache {
+  private cache: Map<string, { data: any, timestamp: number }>;
+  private ttl: number;
+
+  constructor(ttl: number = 14400000) { // 4 hours default
+    this.cache = new Map();
+    this.ttl = ttl;
+  }
+
+  set(key: string, value: any): void {
+    try {
+      const cacheKey = this.normalizeKey(key);
+      this.cache.set(cacheKey, {
+        data: value,
+        timestamp: Date.now()
+      });
+    } catch (error) {
+      logger.warn('Cache set failed', { key, error });
+    }
+  }
+
+  get(key: string): any | null {
+    const cacheKey = this.normalizeKey(key);
+    const entry = this.cache.get(cacheKey);
+    
+    if (!entry) return null;
+    
+    // Check if entry is expired
+    if (Date.now() - entry.timestamp > this.ttl) {
+      this.cache.delete(cacheKey);
+      return null;
+    }
+
+    return entry.data;
+  }
+
+  // Normalize key to handle case and trim
+  private normalizeKey(key: string): string {
+    return key.toLowerCase().trim();
+  }
+
+  clear(): void {
+    this.cache.clear();
+  }
+}
+
 class IntelligentMovieQueryHandler {
   private genAI: GoogleGenerativeAI;
   private externalMovieService: ExternalMovieService;
+  private cache: MovieSearchCache;
+  private config: MovieSearchConfig;
 
-  constructor() {
+  constructor(config: MovieSearchConfig) {
     this.genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
     this.externalMovieService = new ExternalMovieService();
+
+    this.config = {
+      maxTitlesToSearch: 5, // Limit to 5 titles per search
+      cacheTTL: 14400000, // 4 hours cache
+      cacheEnabled: true,
+      concurrentSearchLimit: 8,
+      ...config
+    };
   }
+
+  // Default configuration
+
+  this.cache = new MovieSearchCache(this.config.cacheTTL);
+}
 
   // Main query processing method
   async processQuery(query: string): Promise<MovieResponse> {
@@ -92,208 +162,236 @@ class IntelligentMovieQueryHandler {
     }
   }
 
-  // Extract and Parse JSON from AI response
-  private extractAndParseJSON(text: string): any {
-    try {
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      return jsonMatch ? JSON.parse(jsonMatch[0]) : {};
-    } catch (error) {
-      logger.error('JSON Parsing Error', error);
-      return {};
-    }
-  }
-
-  // Fallback query analysis
-  private fallbackQueryAnalysis(query: string): QueryAnalysisResult {
-    return {
-      type: QueryType.GENERIC_SEARCH,
-      intent: 'general movie search',
-      keywords: query.split(/\s+/),
-      additionalContext: {}
-    };
-  }
-
-  // Map string to QueryType enum
-  private mapQueryType(type: string): QueryType {
-    const typeMap: Record<string, QueryType> = {
-      'recommendation': QueryType.RECOMMENDATION,
-      'specific_theme': QueryType.SPECIFIC_THEME,
-      'plot_description': QueryType.PLOT_DESCRIPTION,
-      'generic_search': QueryType.GENERIC_SEARCH
-    };
-    return typeMap[type.toLowerCase()] || QueryType.GENERIC_SEARCH;
-  }
-
   // Generate Personalized Movie Recommendation
   private async generateRecommendation(analysis: QueryAnalysisResult): Promise<MovieResponse> {
-  try {
-    const model = this.genAI.getGenerativeModel({ model: "gemini-pro" });
+    try {
+      const model = this.genAI.getGenerativeModel({ model: "gemini-pro" });
     
-    const prompt = `Generate a list of movie titles that match this recommendation request:
+      const prompt = `Generate a list of movie titles that match this recommendation request:
     Context: ${analysis.intent}
     Additional Context: ${JSON.stringify(analysis.additionalContext)}
     
     Provide a comma-separated list of movie titles.`;
 
-    const result = await model.generateContent(prompt);
-    const recommendedTitles = result.response.text()
-      .split(',')
-      .map(title => title.trim())
-      .filter(title => title);
+      const result = await model.generateContent(prompt);
+      const recommendedTitles = result.response.text()
+        .split(',')
+        .map(title => title.trim())
+        .filter(title => title);
 
-    const limit = pLimit(5);
+        const limit = pLimit(this.config.concurrentSearchLimit || 8);
     
-    const searchForTitle = async (title: string) => {
-      try {
-        const [tmdb, omdb] = await Promise.all([
-          this.externalMovieService.searchTMDB(title),
-          this.externalMovieService.searchOMDB(title)
-        ]);
-        return { tmdb, omdb };
-      } catch (error) {
-        logger.warn(`Failed to search for title: ${title}`, error);
-        return null;
-      }
-    };
+      const searchForTitle = async (title: string) => {
+        try {
 
-    const searchResults = await Promise.all(
-      recommendedTitles.map(title => limit(() => searchForTitle(title)))
-    );
+          // Check cache first if enabled
+          if (this.config.cacheEnabled) {
+            const cachedResult = this.cache.get(title);
+            if (cachedResult) return cachedResult;
+          }
 
-    const successfulResults = searchResults.filter(Boolean).flatMap(result => [result?.tmdb, result?.omdb]);
+          const [tmdb, omdb] = await Promise.all([
+            this.externalMovieService.searchTMDB(title),
+            this.externalMovieService.searchOMDB(title)
+          ]);
 
-    const combinedResults = this.externalMovieService.mergeDedupResults(successfulResults);
+           // Cache the result if caching is enabled
+           if (this.config.cacheEnabled) {
+            this.cache.set(title, { tmdb, omdb });
+          }
 
-    const rankedResults = await this.verifyAndRankResults(combinedResults, analysis.intent);
+          return { tmdb, omdb };
+        } catch (error) {
+          logger.warn(`Failed to search for title: ${title}`, error);
+          return null;
+        }
+      };
 
-    return {
-      type: rankedResults.length === 1 ? 'single' : 'multiple',
-      results: rankedResults,
-      explanation: `Recommendations based on ${analysis.intent}`
-    };
-  } catch (error) {
-    logger.error('Recommendation Generation Error', error);
-    return { type: 'multiple', results: [] };
+      const searchResults = await Promise.all(
+        recommendedTitles.map(title => limit(() => searchForTitle(title)))
+      );
+
+      const successfulResults = searchResults.filter(Boolean).flatMap(result => [result?.tmdb, result?.omdb]);
+
+      const combinedResults = this.externalMovieService.mergeDedupResults(successfulResults);
+
+      const rankedResults = await this.verifyAndRankResults(combinedResults, analysis.intent);
+
+      return {
+        type: rankedResults.length === 1 ? 'single' : 'multiple',
+        results: rankedResults,
+        explanation: `Recommendations based on ${analysis.intent}`
+      };
+    } catch (error) {
+      logger.error('Recommendation Generation Error', error);
+      return { type: 'multiple', results: [] };
+    }
   }
-}
 
   // Find Movies by Specific Theme
   // Find movies by theme
-private async findMoviesByTheme(analysis: QueryAnalysisResult): Promise<MovieResponse> {
-  try {
-    const model = this.genAI.getGenerativeModel({ model: "gemini-pro" });
+  private async findMoviesByTheme(analysis: QueryAnalysisResult): Promise<MovieResponse> {
+    try {
+      const model = this.genAI.getGenerativeModel({ model: "gemini-pro" });
 
-    const prompt = `Find movie titles that match this theme:
+      const prompt = `Find movie titles that match this theme:
     Theme: ${analysis.keywords.join(' ')}
     Intent: ${analysis.intent}
     
     Provide a comma-separated list of movie titles.`;
 
-    const result = await model.generateContent(prompt);
-    const themeTitles = result.response.text()
-      .split(',')
-      .map(title => title.trim())
-      .filter(title => title);
+      const result = await model.generateContent(prompt);
+      const themeTitles = result.response.text()
+        .split(',')
+        .map(title => title.trim())
+        .filter(title => title);
 
-    const limit = pLimit(5);
+      const limit = pLimit(this.config.concurrentSearchLimit || 8);
 
-    const searchForTitle = async (title: string) => {
-      try {
-        const [tmdb, omdb] = await Promise.all([
-          this.externalMovieService.searchTMDB(title),
-          this.externalMovieService.searchOMDB(title)
-        ]);
-        return { tmdb, omdb };
-      } catch (error) {
-        logger.warn(`Failed to search for title: ${title}`, error);
-        return null;
-      }
-    };
+      const searchForTitle = async (title: string) => {
+        try {
 
-    const searchResults = await Promise.all(
-      themeTitles.map(title => limit(() => searchForTitle(title)))
-    );
+          if (this.config.cacheEnabled) {
+            const cachedResult = this.cache.get(title);
+            if (cachedResult) return cachedResult;
+          }
 
-    const successfulResults = searchResults.filter(Boolean).flatMap(result => [result?.tmdb, result?.omdb]);
+          const [tmdb, omdb] = await Promise.all([
+            this.externalMovieService.searchTMDB(title),
+            this.externalMovieService.searchOMDB(title)
+          ]);
 
-    const combinedResults = this.externalMovieService.mergeDedupResults(successfulResults);
+          if (this.config.cacheEnabled) {
+            this.cache.set(title, { tmdb, omdb });
+          }
 
-    const rankedResults = await this.verifyAndRankResults(combinedResults, analysis.intent);
+          return { tmdb, omdb };
+        } catch (error) {
+          logger.warn(`Failed to search for title: ${title}`, error);
+          return null;
+        }
+      };
 
-    return {
-      type: rankedResults.length === 1 ? 'single' : 'multiple',
-      results: rankedResults,
-      explanation: `Movies related to theme: ${analysis.intent}`
-    };
-  } catch (error) {
-    logger.error('Theme-based Search Error', error);
-    return { type: 'multiple', results: [] };
+      const searchResults = await Promise.all(
+        themeTitles.map(title => limit(() => searchForTitle(title)))
+      );
+
+      const successfulResults = searchResults.filter(Boolean).flatMap(result => [result?.tmdb, result?.omdb]);
+
+      const combinedResults = this.externalMovieService.mergeDedupResults(successfulResults);
+
+      const rankedResults = await this.verifyAndRankResults(combinedResults, analysis.intent);
+
+      return {
+        type: rankedResults.length === 1 ? 'single' : 'multiple',
+        results: rankedResults,
+        explanation: `Movies related to theme: ${analysis.intent}`
+      };
+    } catch (error) {
+      logger.error('Theme-based Search Error', error);
+      return { type: 'multiple', results: [] };
+    }
   }
-}
 
-// Find movie by specific plot description
-private async findMovieByPlot(analysis: QueryAnalysisResult): Promise<MovieResponse> {
-  try {
-    const model = this.genAI.getGenerativeModel({ model: "gemini-pro" });
+  // Find movie by specific plot description
+  private async findMovieByPlot(analysis: QueryAnalysisResult): Promise<MovieResponse> {
+    try {
+      const model = this.genAI.getGenerativeModel({ model: "gemini-pro" });
 
-    const prompt = `Find movie titles that match this plot description:
+      const prompt = `Find movie titles that match this plot description:
     Plot: ${analysis.intent}
     
     Provide a comma-separated list of movie titles.`;
 
-    const result = await model.generateContent(prompt);
-    const plotTitles = result.response.text()
-      .split(',')
-      .map(title => title.trim())
-      .filter(title => title);
+      const result = await model.generateContent(prompt);
+      const plotTitles = result.response.text()
+        .split(',')
+        .map(title => title.trim())
+        .filter(title => title);
 
-    const limit = pLimit(5);
+      const limit = pLimit(this.config.concurrentSearchLimit || 8);
 
-    const searchForTitle = async (title: string) => {
-      try {
-        const [tmdb, omdb] = await Promise.all([
-          this.externalMovieService.searchTMDB(title),
-          this.externalMovieService.searchOMDB(title)
-        ]);
-        return { tmdb, omdb };
-      } catch (error) {
-        logger.warn(`Failed to search for title: ${title}`, error);
-        return null;
-      }
-    };
+      const searchForTitle = async (title: string) => {
+        try {
 
-    const searchResults = await Promise.all(
-      plotTitles.map(title => limit(() => searchForTitle(title)))
-    );
+          if (this.config.cacheEnabled) {
+            const cachedResult = this.cache.get(title);
+            if (cachedResult) return cachedResult;
+          }
 
-    const successfulResults = searchResults.filter(Boolean).flatMap(result => [result?.tmdb, result?.omdb]);
+          const [tmdb, omdb] = await Promise.all([
+            this.externalMovieService.searchTMDB(title),
+            this.externalMovieService.searchOMDB(title)
+          ]);
 
-    const combinedResults = this.externalMovieService.mergeDedupResults(successfulResults);
+          if (this.config.cacheEnabled) {
+            this.cache.set(title, { tmdb, omdb });
+          }
 
-    const rankedResults = await this.verifyAndRankResults(combinedResults, analysis.intent);
+          return { tmdb, omdb };
+        } catch (error) {
+          logger.warn(`Failed to search for title: ${title}`, error);
+          return null;
+        }
+      };
 
-    return {
-      type: rankedResults.length === 1 ? 'single' : 'multiple',
-      results: rankedResults,
-      explanation: `Movies matching plot description`
-    };
-  } catch (error) {
-    logger.error('Plot-based Movie Search Error', error);
-    return { type: 'multiple', results: [] };
+      const searchResults = await Promise.all(
+        plotTitles.map(title => limit(() => searchForTitle(title)))
+      );
+
+      const successfulResults = searchResults.filter(Boolean).flatMap(result => [result?.tmdb, result?.omdb]);
+
+      const combinedResults = this.externalMovieService.mergeDedupResults(successfulResults);
+
+      const rankedResults = await this.verifyAndRankResults(combinedResults, analysis.intent);
+
+      return {
+        type: rankedResults.length === 1 ? 'single' : 'multiple',
+        results: rankedResults,
+        explanation: `Movies matching plot description`
+      };
+    } catch (error) {
+      logger.error('Plot-based Movie Search Error', error);
+      return { type: 'multiple', results: [] };
+    }
   }
-}
 
   // Generic Search Fallback
   private async performGenericSearch(analysis: QueryAnalysisResult): Promise<MovieResponse> {
     try {
+      const searchQuery = analysis.keywords.join(' ');
+      
+      // Check cache first
+      if (this.config.cacheEnabled) {
+        const cachedResult = this.cache.get(searchQuery);
+        if (cachedResult) {
+          return {
+            type: cachedResult.length === 1 ? 'single' : 'multiple',
+            results: cachedResult,
+            explanation: 'Cached generic search results'
+          };
+        }
+      }
+
+      // Perform concurrent searches
       const [tmdbResults, omdbResults] = await Promise.all([
-            this.externalMovieService.searchTMDB(analysis.keywords.join(' ')),
-            this.externalMovieService.searchOMDB(analysis.keywords.join(' '))
-        ]);
+        this.externalMovieService.searchTMDB(searchQuery),
+        this.externalMovieService.searchOMDB(searchQuery)
+      ]);
 
-      const combinedResults = this.externalMovieService.mergeDedupResults([tmdbResults, omdbResults]);
+      const combinedResults = this.externalMovieService.mergeDedupResults([
+        tmdbResults, 
+        omdbResults
+      ]);
+
+      
       const rankedResults = await this.verifyAndRankResults(combinedResults, analysis.intent);
-
+      
+      // Cache results if enabled
+      if (this.config.cacheEnabled) {
+        this.cache.set(searchQuery, rankedResults);
+      }
+      
       return {
         type: rankedResults.length === 1 ? 'single' : 'multiple',
         results: rankedResults,
@@ -336,6 +434,37 @@ private async findMovieByPlot(analysis: QueryAnalysisResult): Promise<MovieRespo
       return results;
     }
   }
+  
+  private extractAndParseJSON(text: string): any {
+    try {
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      return jsonMatch ? JSON.parse(jsonMatch[0]) : {};
+    } catch (error) {
+      logger.error('JSON Parsing Error', error);
+      return {};
+    }
+  }
+
+  // Fallback query analysis
+  private fallbackQueryAnalysis(query: string): QueryAnalysisResult {
+    return {
+      type: QueryType.GENERIC_SEARCH,
+      intent: 'general movie search',
+      keywords: query.split(/\s+/),
+      additionalContext: {}
+    };
+  }
+
+  // Map string to QueryType enum
+  private mapQueryType(type: string): QueryType {
+    const typeMap: Record<string, QueryType> = {
+      'recommendation': QueryType.RECOMMENDATION,
+      'specific_theme': QueryType.SPECIFIC_THEME,
+      'plot_description': QueryType.PLOT_DESCRIPTION,
+      'generic_search': QueryType.GENERIC_SEARCH
+    };
+    return typeMap[type.toLowerCase()] || QueryType.GENERIC_SEARCH;
+  }
 
   // Reorder results based on AI-generated ranking
   private reorderResultsByRanking(
@@ -363,6 +492,20 @@ private async findMovieByPlot(analysis: QueryAnalysisResult): Promise<MovieRespo
     });
 
     return [...rankedResults, ...unrankedResults];
+  }
+
+  clearCache(): void {
+    this.cache.clear();
+  }
+
+  // Method to update configuration dynamically
+  updateConfig(newConfig: MovieSearchConfig): void {
+    this.config = { ...this.config, ...newConfig };
+    
+    // Recreate cache if TTL changed
+    if (newConfig.cacheTTL) {
+      this.cache = new MovieSearchCache(newConfig.cacheTTL);
+    }
   }
 }
 
