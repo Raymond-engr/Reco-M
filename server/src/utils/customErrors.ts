@@ -46,5 +46,13 @@ class RateLimitError extends AppError {
   }
   retryAfter?: number;
 }
+
+class ExternalServiceAPIError extends AppError {
+  constructor(message: string, statusCode: number, details?: any) {
+    super(message, statusCode);
+    this.details = details;
+  }
+  details?: any;
+}
   
-export { AppError, BadRequestError, NotFoundError, UnauthorizedError, GeminiAPIError, RateLimitError };
+export { AppError, BadRequestError, NotFoundError, UnauthorizedError, GeminiAPIError, RateLimitError, ExternalServiceAPIError };

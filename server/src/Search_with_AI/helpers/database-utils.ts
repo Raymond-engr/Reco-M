@@ -2,7 +2,6 @@ import mongoose from 'mongoose';
 import MovieModel from '../Search_with_AI/movie.model';
 import SearchHistoryModel from '../Search_with_AI/search-history.model';
 
-
 export const createIndexes = async () => {
   try {
     // Movie collection indexes

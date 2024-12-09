@@ -1,4 +1,3 @@
-
 import mongoose from 'mongoose';
 import logger from '../utils/logger';
 import { createIndexes } from '../utils/database-utils';

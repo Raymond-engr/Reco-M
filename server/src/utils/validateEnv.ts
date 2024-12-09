@@ -10,6 +10,8 @@ const validateEnv = (): void => {
     GEMINI_API_KEY: str(),
     FRONTEND_URL: url(),
     LOG_LEVEL: str({ choices: ['error', 'warn', 'info', 'http', 'verbose', 'debug', 'silly'] }),
+    TMDB_API_KEY: str(),
+    OMDB_API_KEY: str(),
   });
 };
 
