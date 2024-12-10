@@ -15,6 +15,7 @@ const connectDB = async (): Promise<void> => {
       });
       logger.info(`MongoDB Connected: ${mongoose.connection.host}`);
       await createIndexes();
+      logger.info('Indexes created');
       return;
     } catch (error: any) {
       logger.error(`MongoDB connection failed. Retries left: ${retries - 1}. Error: ${error.message}`);

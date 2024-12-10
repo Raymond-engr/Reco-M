@@ -1,7 +1,8 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import pLimit from 'p-limit';
-import { ExternalMovieService } from './externalMovieService';
-import logger from '../utils/logger';
+import { ExternalMovieService } from '../services/external-movie-service';
+import { IMovie } from '../models/movie.model';
+import logger from '../../utils/logger';
+const pLimit = await import('p-limit').then(mod => mod.default);
 
 // Enum for Query Types
 enum QueryType {
@@ -87,10 +88,11 @@ class IntelligentMovieQueryHandler {
   private cache: MovieSearchCache;
   private config: MovieSearchConfig;
 
-  constructor(config: MovieSearchConfig) {
+  constructor(config: MovieSearchConfig = {}) {
     this.genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
     this.externalMovieService = new ExternalMovieService();
-
+    
+    // Default configuration
     this.config = {
       maxTitlesToSearch: 5, // Limit to 5 titles per search
       cacheTTL: 14400000, // 4 hours cache
@@ -98,12 +100,9 @@ class IntelligentMovieQueryHandler {
       concurrentSearchLimit: 8,
       ...config
     };
+
+    this.cache = new MovieSearchCache(this.config.cacheTTL);
   }
-
-  // Default configuration
-
-  this.cache = new MovieSearchCache(this.config.cacheTTL);
-}
 
   // Main query processing method
   async processQuery(query: string): Promise<MovieResponse> {
@@ -134,7 +133,7 @@ class IntelligentMovieQueryHandler {
   // Analyze Query Intent Using Gemini
   private async analyzeQueryIntent(query: string): Promise<QueryAnalysisResult> {
     try {
-      const model = this.genAI.getGenerativeModel({ model: "gemini-pro" });
+      const model = this.genAI.getGenerativeModel({ model: 'gemini-pro' });
       
       const prompt = `Analyze this movie search query in detail:
       Query: "${query}"
@@ -165,13 +164,13 @@ class IntelligentMovieQueryHandler {
   // Generate Personalized Movie Recommendation
   private async generateRecommendation(analysis: QueryAnalysisResult): Promise<MovieResponse> {
     try {
-      const model = this.genAI.getGenerativeModel({ model: "gemini-pro" });
-    
+      const model = this.genAI.getGenerativeModel({ model: 'gemini-pro' });
+      
       const prompt = `Generate a list of movie titles that match this recommendation request:
-    Context: ${analysis.intent}
-    Additional Context: ${JSON.stringify(analysis.additionalContext)}
-    
-    Provide a comma-separated list of movie titles.`;
+      Context: ${analysis.intent}
+      Additional Context: ${JSON.stringify(analysis.additionalContext)}
+      
+      Provide a comma-separated list of movie titles.`;
 
       const result = await model.generateContent(prompt);
       const recommendedTitles = result.response.text()
@@ -179,11 +178,10 @@ class IntelligentMovieQueryHandler {
         .map(title => title.trim())
         .filter(title => title);
 
-        const limit = pLimit(this.config.concurrentSearchLimit || 8);
-    
+      const limit = pLimit(this.config.concurrentSearchLimit || 8);
+      
       const searchForTitle = async (title: string) => {
         try {
-
           // Check cache first if enabled
           if (this.config.cacheEnabled) {
             const cachedResult = this.cache.get(title);
@@ -194,9 +192,9 @@ class IntelligentMovieQueryHandler {
             this.externalMovieService.searchTMDB(title),
             this.externalMovieService.searchOMDB(title)
           ]);
-
-           // Cache the result if caching is enabled
-           if (this.config.cacheEnabled) {
+          
+          // Cache the result if caching is enabled
+          if (this.config.cacheEnabled) {
             this.cache.set(title, { tmdb, omdb });
           }
 
@@ -211,7 +209,9 @@ class IntelligentMovieQueryHandler {
         recommendedTitles.map(title => limit(() => searchForTitle(title)))
       );
 
-      const successfulResults = searchResults.filter(Boolean).flatMap(result => [result?.tmdb, result?.omdb]);
+      const successfulResults = searchResults
+        .filter(Boolean)
+        .flatMap(result => [result?.tmdb, result?.omdb]);
 
       const combinedResults = this.externalMovieService.mergeDedupResults(successfulResults);
 
@@ -229,16 +229,15 @@ class IntelligentMovieQueryHandler {
   }
 
   // Find Movies by Specific Theme
-  // Find movies by theme
   private async findMoviesByTheme(analysis: QueryAnalysisResult): Promise<MovieResponse> {
     try {
-      const model = this.genAI.getGenerativeModel({ model: "gemini-pro" });
+      const model = this.genAI.getGenerativeModel({ model: 'gemini-pro' });
 
       const prompt = `Find movie titles that match this theme:
-    Theme: ${analysis.keywords.join(' ')}
-    Intent: ${analysis.intent}
-    
-    Provide a comma-separated list of movie titles.`;
+      Theme: ${analysis.keywords.join(' ')}
+      Intent: ${analysis.intent}
+      
+      Provide a comma-separated list of movie titles.`;
 
       const result = await model.generateContent(prompt);
       const themeTitles = result.response.text()
@@ -250,7 +249,7 @@ class IntelligentMovieQueryHandler {
 
       const searchForTitle = async (title: string) => {
         try {
-
+          // Check cache first if enabled
           if (this.config.cacheEnabled) {
             const cachedResult = this.cache.get(title);
             if (cachedResult) return cachedResult;
@@ -260,7 +259,8 @@ class IntelligentMovieQueryHandler {
             this.externalMovieService.searchTMDB(title),
             this.externalMovieService.searchOMDB(title)
           ]);
-
+          
+          // Cache the result if caching is enabled
           if (this.config.cacheEnabled) {
             this.cache.set(title, { tmdb, omdb });
           }
@@ -276,7 +276,9 @@ class IntelligentMovieQueryHandler {
         themeTitles.map(title => limit(() => searchForTitle(title)))
       );
 
-      const successfulResults = searchResults.filter(Boolean).flatMap(result => [result?.tmdb, result?.omdb]);
+      const successfulResults = searchResults
+        .filter(Boolean)
+        .flatMap(result => [result?.tmdb, result?.omdb]);
 
       const combinedResults = this.externalMovieService.mergeDedupResults(successfulResults);
 
@@ -293,15 +295,15 @@ class IntelligentMovieQueryHandler {
     }
   }
 
-  // Find movie by specific plot description
+  // Find Movie by Specific Plot Description
   private async findMovieByPlot(analysis: QueryAnalysisResult): Promise<MovieResponse> {
     try {
-      const model = this.genAI.getGenerativeModel({ model: "gemini-pro" });
+      const model = this.genAI.getGenerativeModel({ model: 'gemini-pro' });
 
       const prompt = `Find movie titles that match this plot description:
-    Plot: ${analysis.intent}
-    
-    Provide a comma-separated list of movie titles.`;
+      Plot: ${analysis.intent}
+      
+      Provide a comma-separated list of movie titles.`;
 
       const result = await model.generateContent(prompt);
       const plotTitles = result.response.text()
@@ -313,7 +315,7 @@ class IntelligentMovieQueryHandler {
 
       const searchForTitle = async (title: string) => {
         try {
-
+          // Check cache first if enabled
           if (this.config.cacheEnabled) {
             const cachedResult = this.cache.get(title);
             if (cachedResult) return cachedResult;
@@ -323,7 +325,8 @@ class IntelligentMovieQueryHandler {
             this.externalMovieService.searchTMDB(title),
             this.externalMovieService.searchOMDB(title)
           ]);
-
+          
+          // Cache the result if caching is enabled
           if (this.config.cacheEnabled) {
             this.cache.set(title, { tmdb, omdb });
           }
@@ -339,7 +342,9 @@ class IntelligentMovieQueryHandler {
         plotTitles.map(title => limit(() => searchForTitle(title)))
       );
 
-      const successfulResults = searchResults.filter(Boolean).flatMap(result => [result?.tmdb, result?.omdb]);
+      const successfulResults = searchResults
+        .filter(Boolean)
+        .flatMap(result => [result?.tmdb, result?.omdb]);
 
       const combinedResults = this.externalMovieService.mergeDedupResults(successfulResults);
 
@@ -348,15 +353,14 @@ class IntelligentMovieQueryHandler {
       return {
         type: rankedResults.length === 1 ? 'single' : 'multiple',
         results: rankedResults,
-        explanation: `Movies matching plot description`
+        explanation: 'Movies matching plot description'
       };
     } catch (error) {
       logger.error('Plot-based Movie Search Error', error);
       return { type: 'multiple', results: [] };
     }
   }
-
-  // Generic Search Fallback
+  
   private async performGenericSearch(analysis: QueryAnalysisResult): Promise<MovieResponse> {
     try {
       const searchQuery = analysis.keywords.join(' ');
@@ -402,14 +406,13 @@ class IntelligentMovieQueryHandler {
       return { type: 'multiple', results: [] };
     }
   }
-
-  // Verify and Rank Results
+  
   private async verifyAndRankResults(
     results: IMovie[], 
     originalQuery: string
   ): Promise<IMovie[]> {
     try {
-      const model = this.genAI.getGenerativeModel({ model: "gemini-pro" });
+      const model = this.genAI.getGenerativeModel({ model: 'gemini-pro' });
       
       const prompt = `Rank and verify these movie search results for the query: "${originalQuery}"
       
@@ -434,7 +437,8 @@ class IntelligentMovieQueryHandler {
       return results;
     }
   }
-  
+
+  // Extract and Parse JSON from AI response
   private extractAndParseJSON(text: string): any {
     try {
       const jsonMatch = text.match(/\{[\s\S]*\}/);
@@ -494,6 +498,7 @@ class IntelligentMovieQueryHandler {
     return [...rankedResults, ...unrankedResults];
   }
 
+  // Method to manually clear cache if needed
   clearCache(): void {
     this.cache.clear();
   }

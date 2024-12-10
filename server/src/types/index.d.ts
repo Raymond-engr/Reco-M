@@ -1,9 +1,9 @@
-import type { ISearch } from '../models/searchModel';
+import type { ValidatedRequest } from '../types/types.ts';
 
 declare global {
   namespace Express {
     interface Request {
-      search?: ISearch | null;
+      validatedData?: ValidatedRequest | null;
     }
   }
 }

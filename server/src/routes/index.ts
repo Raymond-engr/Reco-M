@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import searchRoutes from './searchRoutes';
+import aiSearch from '../Search_with_AI/routes/ai-search.routes';
 
 const router = Router();
 /**
@@ -38,6 +38,6 @@ const router = Router();
  *                   type: string
  */
 
-router.use('/search', searchRoutes);
+router.use('/aiSearch', aiSearch);
 
 export default router;

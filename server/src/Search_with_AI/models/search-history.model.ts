@@ -42,7 +42,7 @@ const SearchHistoryModel = mongoose.model<SearchHistorySchema>('SearchHistory', 
 }));
 
 // Search History Management Class
-class SearchHistoryManager {
+export class SearchHistoryManager {
   private genAI: GoogleGenerativeAI;
 
   constructor() {

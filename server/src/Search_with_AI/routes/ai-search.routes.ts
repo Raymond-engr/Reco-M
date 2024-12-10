@@ -1,13 +1,10 @@
-import express from 'express';
-import { AISearchController } from '../controllers/ai-search.controller';
+import { Router } from 'express';
+import { getAiMovie } from '../controllers/aiSearch.controller';
+import { validateSearchQuery } from '../../middleware/searchValidator';
 
-export const setupAISearchRoutes = (app: express.Application) => {
-  const router = express.Router();
-  const aiSearchController = new AISearchController();
+const router = Router();
 
-  // AI-powered search route
-  router.post('/searchai', aiSearchController.aiSearch);
+router.route('/')
+  .get(validateSearchQuery, getAiMovie);
 
-  // Attach the router to the main app
-  app.use('/api', router);
-};
+export default router;

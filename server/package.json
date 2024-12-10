@@ -1,28 +1,40 @@
 {
   "name": "server",
   "version": "1.0.0",
+  "type": "module",
   "main": "dist/index.js",
+  "exports": {
+    "import": "./dist/index.js",
+    "require": "./dist/index.cjs"
+  },
   "scripts": {
+    "clean": "rimraf dist",
     "lint": "eslint 'src/**/*.{ts,js}'",
     "lint:fix": "eslint 'src/**/*.{ts,js}' --fix",
-    "build": "tsc",
+    "prepare": "npm run build",
+    "build": "npm run clean && tsc",
+    "build:dev": "tsc --watch",
     "start": "node dist/index.js",
-    "dev": "nodemon --exec ts-node src/index.ts"
+    "dev": "nodemon --exec node --loader ts-node/esm src/index.ts"
   },
   "keywords": [],
   "author": "Raymond Omoyakhi <raymondomoyakhi@gmail.com>",
   "license": "ISC",
-  "description": "",
+  "description": "An Ai powered movie recommendation app",
   "dependencies": {
+    "@google/generative-ai": "^0.21.0",
     "axios": "^1.7.7",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "envalid": "^8.0.0",
     "express": "^4.21.1",
     "express-rate-limit": "^7.4.1",
+    "glob": "^11.0.0",
     "helmet": "^8.0.0",
     "joi": "^17.13.3",
     "mongoose": "^8.7.0",
+    "p-limit": "^6.1.0",
+    "rimraf": "^6.0.1",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
     "winston": "^3.15.0"

@@ -1,71 +1,57 @@
 import { Request, Response } from 'express';
-import { AIQueryProcessor } from '../utils/ai-query-processor';
-import { ExternalMovieService } from '../services/external-movie-service';
-import { SearchHistoryManager } from '../services/search-history.service';
+import asyncHandler from '../../utils/asyncHandler';
+import { ValidatedRequest } from '../../middleware/validateRequest';
+import IntelligentMovieQueryHandler from '../helpers/ai-query-processor';
+import { SearchHistoryManager } from '../models/search-history.model';
+import { BadRequestError, GeminiAPIError, RateLimitError, ExternalServiceAPIError } from '../../utils/customErrors';
+import logger from '../../utils/logger';
 
-export class AISearchController {
-  private aiQueryProcessor: AIQueryProcessor;
-  private externalMovieService: ExternalMovieService;
-  private searchHistoryManager: SearchHistoryManager;
+const movieQueryHandler = new IntelligentMovieQueryHandler();
+const searchHistoryManager = new SearchHistoryManager();
 
-  constructor() {
-    this.aiQueryProcessor = new AIQueryProcessor();
-    this.externalMovieService = new ExternalMovieService();
-    this.searchHistoryManager = new SearchHistoryManager();
+export const getAiMovie = asyncHandler(async (req: Request, res: Response) => {
+  const { q: query, userId } = (req as Request & { validatedQuery: ValidatedRequest }).validatedQuery;
+
+  if (!query) {
+    throw new BadRequestError('Query is required');
   }
 
-  // Main AI-powered search method
-  async aiSearch(req: Request, res: Response): Promise<Response> {
-    try {
-      const { query, userId } = req.body;
+  try {
+    logger.info(`Processing AI movie search for query: "${query}"`);
 
-      // Validate input
-      if (!query) {
-        return res.status(400).json({ error: 'Query is required' });
-      }
+    const response = await movieQueryHandler.processQuery(query);
 
-      // Analyze query intent
-      const queryAnalysis = await this.aiQueryProcessor.analyzeQueryIntent(query);
-
-      // Search multiple sources
-      const [tmdbResults, omdbResults] = await Promise.all([
-        this.externalMovieService.searchTMDB(query),
-        this.externalMovieService.searchOMDB(query)
-      ]);
-
-      // Merge and deduplicate results
-      const combinedResults = this.externalMovieService.mergeDedupResults([
-        tmdbResults, 
-        omdbResults
-      ]);
-
-      // Verify and rank results
-      const rankedResults = await this.aiQueryProcessor.verifyAndRankResults(
-        combinedResults, 
-        query
+    if (response.type === 'single' && response.results.length > 0 && userId) {
+      logger.info(`Saving search history for user ${userId}`);
+      await searchHistoryManager.saveSearchHistory(
+        userId,
+        query,
+        response.results[0],
+        'single'
       );
-
-      // Determine result type
-      const resultType = rankedResults.length === 1 ? 'single' : 'multiple';
-
-      // Save search history for single results
-      if (resultType === 'single' && userId) {
-        await this.searchHistoryManager.saveSearchHistory(
-          userId, 
-          query, 
-          rankedResults[0], 
-          'single'
-        );
-      }
-
-      return res.json({
-        type: resultType,
-        results: rankedResults,
-        explanation: `Search results for: ${query}`
-      });
-    } catch (error) {
-      console.error('AI Search Error:', error);
-      return res.status(500).json({ error: 'Internal server error' });
     }
+
+    res.status(200).json({
+      success: true,
+      type: response.type,
+      results: response.results,
+      explanation: response.explanation || `Search results for: ${query}`,
+    });
+  } catch (error: any) {
+    logger.error(`AI Search error: ${error.message}`, { error });
+
+    if (error instanceof GeminiAPIError) {
+      if (error.statusCode === 429) {
+        throw new RateLimitError('Gemini API rate limit exceeded', error.details?.retryAfter);
+      } else {
+        throw new GeminiAPIError('Error processing Gemini API request', error.statusCode, error.details);
+      }
+    }
+
+    if (error instanceof ExternalServiceAPIError) {
+      throw new ExternalServiceAPIError('Error with external movie service', error.statusCode, error.details);
+    }
+
+    throw new Error('Internal server error');
   }
-}
+});
