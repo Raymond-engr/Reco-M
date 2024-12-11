@@ -1,9 +1,9 @@
 import axios from 'axios';
-import logger from '../../utils/logger.js';
-import { AppError } from '../../utils/customErrors.js';
-import { handleExternalServiceError } from '../helpers/handleExternalServiceErrors.js';
-import { IMovie } from '../models/movie.model.js';
-import validateEnv from '../../utils/validateEnv.js';
+import logger from '../utils/logger';
+import { AppError } from '../utils/customErrors';
+import { handleExternalServiceError } from '../helpers/handleExternalServiceErrors';
+import { IMovie } from '../Search_with_AI/movie.model';
+import validateEnv from '../utils/validateEnv';
 
 validateEnv();
 

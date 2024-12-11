@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
-import logger from '../utils/logger.js';
-import { createIndexes } from '.././Search_with_AI/helpers/database-utils.js';
+import logger from '../utils/logger';
+import { createIndexes } from '../utils/database-utils';
 
 const MAX_RETRIES = 5;
 const RETRY_DELAY = 5000;

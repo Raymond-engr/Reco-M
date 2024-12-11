@@ -1,6 +1,6 @@
 import axios from 'axios';
-import logger from '../../utils/logger.js';
-import { ExternalServiceAPIError } from '../../utils/customErrors.js';
+import logger from '../utils/logger';
+import { ExternalServiceAPIError } from '../utils/customErrors';
 
 export function handleExternalServiceError(serviceName: string, error: any): never {
   if (axios.isAxiosError(error)) {

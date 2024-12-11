@@ -1,5 +1,5 @@
 import Joi from 'joi';
-import validateRequest from './validateRequest.js';
+import validateRequest from '../middlewares/validateRequest';
 
 export const searchValidationSchema = Joi.object({
   q: Joi.string().min(1).max(200).required().messages({

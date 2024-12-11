@@ -3,12 +3,12 @@ import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import swaggerUi from 'swagger-ui-express';
-import routes from './routes/index.js';
-import errorHandler from './middleware/errorHandler.js';
-import notFound from './middleware/notFound.js';
-import { corsOptions, helmetOptions, rateLimitOptions } from './utils/securityConfig.js';
-import logger from './utils/logger.js';
-import swaggerSpec from './utils/swaggerConfig.js';
+import routes from './routes';
+import errorHandler from './middleware/errorHandler';
+import notFound from './middleware/notFound';
+import { corsOptions, helmetOptions, rateLimitOptions } from './utils/securityConfig';
+import logger from './utils/logger';
+import swaggerSpec from './utils/swaggerConfig';
 
 const app: Application = express();
 

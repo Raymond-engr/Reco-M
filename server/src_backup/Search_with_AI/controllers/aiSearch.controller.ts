@@ -1,10 +1,10 @@
 import { Request, Response } from 'express';
-import asyncHandler from '../../utils/asyncHandler.js';
-import { ValidatedRequest } from '../../middleware/validateRequest.js';
-import IntelligentMovieQueryHandler from '../helpers/ai-query-processor.js';
-import { SearchHistoryManager } from '../models/search-history.model.js';
-import { BadRequestError, GeminiAPIError, RateLimitError, ExternalServiceAPIError } from '../../utils/customErrors.js';
-import logger from '../../utils/logger.js';
+import asyncHandler from '../../utils/asyncHandler';
+import { ValidatedRequest } from '../../middleware/validateRequest';
+import IntelligentMovieQueryHandler from '../helpers/ai-query-processor';
+import { SearchHistoryManager } from '../models/search-history.model';
+import { BadRequestError, GeminiAPIError, RateLimitError, ExternalServiceAPIError } from '../../utils/customErrors';
+import logger from '../../utils/logger';
 
 const movieQueryHandler = new IntelligentMovieQueryHandler();
 const searchHistoryManager = new SearchHistoryManager();

@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import aiSearch from '../Search_with_AI/routes/ai-search.routes.js';
+import aiSearch from '../Search_with_AI/routes/ai-search.routes';
 
 const router = Router();
 /**

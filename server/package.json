@@ -2,6 +2,7 @@
   "name": "server",
   "version": "1.0.0",
   "type": "module",
+  "extensions": { "ts": ["node"] },
   "main": "dist/index.js",
   "exports": {
     "import": "./dist/index.js",

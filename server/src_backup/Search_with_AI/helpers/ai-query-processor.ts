@@ -1,7 +1,7 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { ExternalMovieService } from '../services/external-movie-service.js';
-import { IMovie } from '../models/movie.model.js';
-import logger from '../../utils/logger.js';
+import { ExternalMovieService } from '../services/external-movie-service';
+import { IMovie } from '../models/movie.model';
+import logger from '../../utils/logger';
 const pLimit = await import('p-limit').then(mod => mod.default);
 
 // Enum for Query Types
