@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import asyncHandler from '../../utils/asyncHandler.js';
 import { ValidatedRequest } from '../../middleware/validateRequest.js';
 import IntelligentMovieQueryHandler from '../helpers/ai-query-processor.js';
-import { SearchHistoryManager } from '../models/search-history.model.js';
+import { SearchHistoryManager } from '../helpers/searchHistoryManager.js';
 import { BadRequestError, GeminiAPIError, RateLimitError, ExternalServiceAPIError } from '../../utils/customErrors.js';
 import logger from '../../utils/logger.js';
 
