@@ -47,7 +47,7 @@ export class SearchHistoryManager {
         .sort({ timestamp: -1 })
         .limit(limit);
     } catch (error) {
-      console.error('Error retrieving search history:', error);
+      logger.error('Error retrieving search history:', error);
       return [];
     }
   }
@@ -57,7 +57,7 @@ export class SearchHistoryManager {
     try {
       await SearchHistoryModel.deleteMany({ userId });
     } catch (error) {
-      console.error('Error clearing search history:', error);
+      logger.error('Error clearing search history:', error);
     }
   }
 }
@@ -80,7 +80,7 @@ export const searchHistoryRoutes = (router: express.Router) => {
   
       res.status(200).json({ message: 'Search history saved successfully' });
     } catch (error) {
-      console.error('Save search history error:', error);
+      logger.error('Save search history error:', error);
       res.status(500).json({ error: 'Failed to save search history' });
     }
   });
@@ -98,7 +98,7 @@ export const searchHistoryRoutes = (router: express.Router) => {
   
       res.status(200).json(searchHistory);
     } catch (error) {
-      console.error('Retrieve search history error:', error);
+      logger.error('Retrieve search history error:', error);
       res.status(500).json({ error: 'Failed to retrieve search history' });
     }
   });
@@ -112,7 +112,7 @@ export const searchHistoryRoutes = (router: express.Router) => {
   
       res.status(200).json({ message: 'Search history cleared successfully' });
     } catch (error) {
-      console.error('Clear search history error:', error);
+      logger.error('Clear search history error:', error);
       res.status(500).json({ error: 'Failed to clear search history' });
     }
   });
