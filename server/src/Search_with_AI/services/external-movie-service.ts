@@ -2,7 +2,7 @@ import axios from 'axios';
 import logger from '../../utils/logger.js';
 import { AppError } from '../../utils/customErrors.js';
 import { handleExternalServiceError } from '../helpers/handleExternalServiceErrors.js';
-import { IMovie } from '../models/movie.model.js';
+import { IMovies } from '../../types/types.js';
 import validateEnv from '../../utils/validateEnv.js';
 
 validateEnv();
@@ -79,7 +79,7 @@ export class ExternalMovieService {
     }
   }
 
-  private async fetchMovieDetails(movieId: number): Promise<Partial<IMovie>> {
+  private async fetchMovieDetails(movieId: number): Promise<Partial<IMovies>> {
     try {
       const [detailsResponse, creditsResponse] = await Promise.all([
         axios.get<TMDBDetailedMovie>(`https://api.themoviedb.org/3/movie/${movieId}`, {
@@ -97,15 +97,17 @@ export class ExternalMovieService {
         time_duration: details.runtime ? `${details.runtime} mins` : undefined,
         metadata: {
           keywords: details.keywords.keywords.map((keyword) => keyword.name),
+          lastUpdated: new Date(),
         },
-        cast: credits.cast.slice(0, 5).map((member) => member.name),
+        cast: (credits.cast || []).slice(0, 5).map((member) => member.name) || [],
       };
     } catch (error: any) {
       handleExternalServiceError('TMDB', error);
+      return { cast: [] };
     }
   }
 
-  async searchTMDB(query: string): Promise<IMovie[]> {
+  async searchTMDB(query: string): Promise<IMovies[]> {
     try {
       const response = await axios.get<TMDBResponse>('https://api.themoviedb.org/3/search/movie', {
         params: { api_key: this.tmdbApiKey, query, language: 'en-US', page: 1 },
@@ -122,7 +124,7 @@ export class ExternalMovieService {
       return Promise.all(
         movies.map(async (movie) => {
           await this.fetchTMDBGenres();
-          const genres = movie.genre_ids.map((id) => this.tmdbGenreMap.get(id) || 'Unknown Genre');
+          const genres = (movie.genre_ids || []).map((id) => this.tmdbGenreMap.get(id) || 'Unknown Genre');
           const additionalDetails = await this.fetchMovieDetails(movie.id);
 
           return {
@@ -135,7 +137,9 @@ export class ExternalMovieService {
               ...additionalDetails.metadata,
               genres,
               popularity: movie.popularity,
+              lastUpdated: additionalDetails.metadata?.lastUpdated || new Date(),
             },
+            cast: additionalDetails.cast || [],
           };
         })
       );
@@ -144,7 +148,7 @@ export class ExternalMovieService {
     }
   }
 
-  async searchOMDB(query: string): Promise<IMovie[]> {
+  async searchOMDB(query: string): Promise<IMovies[]> {
     try {
       const response = await axios.get<OMDBResponse>('http://www.omdbapi.com/', {
         params: { apikey: this.omdbApiKey, s: query, type: 'movie' },
@@ -177,8 +181,8 @@ export class ExternalMovieService {
     }
   }
 
-  mergeDedupResults(resultSets: IMovie[][]): IMovie[] {
-    const uniqueMovies = new Map<string, IMovie>();
+  mergeDedupResults(resultSets: IMovies[][]): IMovies[] {
+    const uniqueMovies = new Map<string, IMovies>();
 
     resultSets.forEach((results) => {
       results.forEach((movie) => {
@@ -191,6 +195,7 @@ export class ExternalMovieService {
             ...existing.metadata,
             genres: [...(existing.metadata?.genres || []), ...(movie.metadata?.genres || [])],
             ratings: [...(existing.metadata?.ratings || []), ...(movie.metadata?.ratings || [])],
+            lastUpdated: existing.metadata?.lastUpdated || new Date(),
           };
         }
       });

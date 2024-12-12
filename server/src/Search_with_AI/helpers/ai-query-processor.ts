@@ -1,6 +1,6 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { ExternalMovieService } from '../services/external-movie-service.js';
-import { IMovie } from '../models/movie.model.js';
+import { IMovies } from '../../types/types.js';
 import logger from '../../utils/logger.js';
 const pLimit = await import('p-limit').then(mod => mod.default);
 
@@ -23,7 +23,7 @@ interface QueryAnalysisResult {
 // Movie Response Interface
 interface MovieResponse {
   type: 'single' | 'multiple';
-  results: IMovie[];
+  results: IMovies[];
   explanation?: string;
 }
 
@@ -408,9 +408,9 @@ class IntelligentMovieQueryHandler {
   }
   
   private async verifyAndRankResults(
-    results: IMovie[], 
+    results: IMovies[], 
     originalQuery: string
-  ): Promise<IMovie[]> {
+  ): Promise<IMovies[]> {
     try {
       const model = this.genAI.getGenerativeModel({ model: 'gemini-pro' });
       
@@ -472,11 +472,11 @@ class IntelligentMovieQueryHandler {
 
   // Reorder results based on AI-generated ranking
   private reorderResultsByRanking(
-    results: IMovie[], 
+    results: IMovies[], 
     rankedTitles: string[]
-  ): IMovie[] {
-    const rankedResults: IMovie[] = [];
-    const unrankedResults: IMovie[] = [];
+  ): IMovies[] {
+    const rankedResults: IMovies[] = [];
+    const unrankedResults: IMovies[] = [];
 
     // First pass: add ranked results
     rankedTitles.forEach(title => {
