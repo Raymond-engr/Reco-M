@@ -1,4 +1,3 @@
-
 import globals from 'globals';
 import eslint from '@eslint/js';
 import typescriptParser from '@typescript-eslint/parser';
@@ -9,19 +8,23 @@ export default [
     languageOptions: {
       parser: typescriptParser,
       parserOptions: {
-        ecmaVersion: 2020,
+        ecmaVersion: 'latest',
         sourceType: 'module',
         ecmaFeatures: {
           jsx: true,
         },
+        project: ['./tsconfig.json'],
+      },
+      globals: {
+        ...globals.node,
       },
     },
     plugins: {
-      typescriptEslint: typescriptEslint,
+      '@typescript-eslint': typescriptEslint,
     },
     ignores: ['node_modules/*', 'dist/*'],
     rules: {
-      'no-undef': 'error',
+       'no-undef': 'error',
       semi: 'error',
       'semi-spacing': 'error',
       eqeqeq: 'warn',
@@ -58,12 +61,31 @@ export default [
       'object-shorthand': 'off',
       'prefer-const': 'error',
       'prefer-template': 'warn',
-    },
+      '@typescript-eslint/no-explicit-any': 'warn',
+      '@typescript-eslint/explicit-function-return-type': 'off',
+      '@typescript-eslint/no-unused-vars': [
+        'warn', 
+        { 
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+          destructuredArrayIgnorePattern: '^_'
+        }
+      ],
+      '@typescript-eslint/consistent-type-imports': [
+        'error', 
+        { prefer: 'type-imports' }
+      ],
+      'no-console': 'warn',
+      'complexity': ['warn', 10],
+      'max-depth': ['warn', 4],
+      'max-nested-callbacks': ['warn', 3]
+    }
   },
-  {
-    files: ['**/*.js', '**/*.ts'],
-    languageOptions: { sourceType: 'commonjs' },
-  },
-  { languageOptions: { globals: globals.node } },
   eslint.configs.recommended,
+  {
+    files: ['**/*.ts'],
+    rules: {
+      'no-undef': 'off'
+    }
+  }
 ];

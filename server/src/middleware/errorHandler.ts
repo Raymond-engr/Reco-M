@@ -1,7 +1,7 @@
 
-import { Request, Response, NextFunction } from 'express';
+import type { Request, Response, NextFunction } from 'express';
 import logger from '../utils/logger.js';
-import { AppError } from '../utils/customErrors.js';
+import type { AppError } from '../utils/customErrors.js';
 
 const errorHandler = (err: AppError, req: Request, res: Response, next: NextFunction) => {
   err.statusCode = err.statusCode || 500;

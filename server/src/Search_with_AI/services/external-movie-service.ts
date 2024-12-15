@@ -2,7 +2,7 @@ import axios from 'axios';
 import logger from '../../utils/logger.js';
 import { AppError } from '../../utils/customErrors.js';
 import { handleExternalServiceError } from '../helpers/handleExternalServiceErrors.js';
-import { IMovies } from '../../types/types.js';
+import type { IMovies } from '../../types/types.js';
 import validateEnv from '../../utils/validateEnv.js';
 
 validateEnv();

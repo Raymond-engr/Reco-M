@@ -1,6 +1,6 @@
-import { Request, Response } from 'express';
+import type { Request, Response } from 'express';
 import asyncHandler from '../../utils/asyncHandler.js';
-import { ValidatedRequest } from '../../middleware/validateRequest.js';
+import type { ValidatedRequest } from '../../middleware/validateRequest.js';
 import IntelligentMovieQueryHandler from '../helpers/ai-query-processor.js';
 import { SearchHistoryManager } from '../helpers/searchHistoryManager.js';
 import { BadRequestError, GeminiAPIError, RateLimitError, ExternalServiceAPIError } from '../../utils/customErrors.js';

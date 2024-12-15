@@ -1,6 +1,6 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { ExternalMovieService } from '../services/external-movie-service.js';
-import { IMovies } from '../../types/types.js';
+import type { IMovies } from '../../types/types.js';
 import logger from '../../utils/logger.js';
 const pLimit = await import('p-limit').then(mod => mod.default);
 

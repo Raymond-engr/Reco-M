@@ -1,6 +1,6 @@
 import app from './app.js';
 import connectDB from './db/database.js';
-import { AddressInfo } from 'net';
+import type { AddressInfo } from 'net';
 import logger from './utils/logger.js';
 import validateEnv from './utils/validateEnv.js';
 

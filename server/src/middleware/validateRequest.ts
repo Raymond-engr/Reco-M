@@ -1,5 +1,5 @@
-import { Request, Response, NextFunction } from 'express';
-import Joi, { Schema } from 'joi';
+import type { Request, Response, NextFunction } from 'express';
+import type { Schema } from 'joi';
 import logger from '../utils/logger.js';
 import { BadRequestError } from '../utils/customErrors.js';
 

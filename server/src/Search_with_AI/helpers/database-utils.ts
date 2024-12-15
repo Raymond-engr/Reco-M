@@ -1,4 +1,3 @@
-import mongoose from 'mongoose';
 import MovieModel from '../models/movie.model.js';
 import SearchHistoryModel from '../models/search-history.model.js';
 
