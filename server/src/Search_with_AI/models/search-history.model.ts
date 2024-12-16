@@ -1,5 +1,4 @@
-import type { Document} from 'mongoose';
-import mongoose, { Schema } from 'mongoose';
+import mongoose, { Document, Schema } from 'mongoose';
 
 export interface ISearchHistory extends Document {
   userId: string;

@@ -1,4 +1,4 @@
-import type { Document, Schema} from 'mongoose';
+import mongoose, { Document, Schema} from 'mongoose';
 
 export interface IMovie extends Document {
   name: string;

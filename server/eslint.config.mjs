@@ -71,10 +71,6 @@ export default [
           destructuredArrayIgnorePattern: '^_'
         }
       ],
-      '@typescript-eslint/consistent-type-imports': [
-        'error', 
-        { prefer: 'type-imports' }
-      ],
       'no-console': 'warn',
       'complexity': ['warn', 10],
       'max-depth': ['warn', 4],
