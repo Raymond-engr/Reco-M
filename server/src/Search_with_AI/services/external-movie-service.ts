@@ -61,7 +61,9 @@ export class ExternalMovieService {
   }
 
   private async fetchTMDBGenres(): Promise<void> {
-    if (this.tmdbGenreMap.size > 0) return;
+    if (this.tmdbGenreMap.size > 0)
+    logger.info('returning cached TMDB genres');
+    return;
 
     try {
       const response = await axios.get<{ genres: Array<{ id: number; name: string }> }>(
@@ -83,7 +85,8 @@ export class ExternalMovieService {
     try {
       const [detailsResponse, creditsResponse] = await Promise.all([
         axios.get<TMDBDetailedMovie>(`https://api.themoviedb.org/3/movie/${movieId}`, {
-          params: { api_key: this.tmdbApiKey },
+          params: { api_key: this.tmdbApiKey,
+          append_to_response: 'keywords' },
         }),
         axios.get<TMDBCredits>(`https://api.themoviedb.org/3/movie/${movieId}/credits`, {
           params: { api_key: this.tmdbApiKey },
@@ -92,11 +95,13 @@ export class ExternalMovieService {
 
       const details = detailsResponse.data;
       const credits = creditsResponse.data;
+      
+      //logger.info(`Movie Details: ${JSON.stringify(details, null, 2)}, Credit details: ${JSON.stringify(credits, null, 2)}`);
 
       return {
         time_duration: details.runtime ? `${details.runtime} mins` : undefined,
         metadata: {
-          keywords: details.keywords.keywords.map((keyword) => keyword.name),
+          keywords: details?.keywords.keywords.map((keyword) => keyword.name),
           lastUpdated: new Date(),
         },
         cast: (credits.cast || []).slice(0, 5).map((member) => member.name) || [],
@@ -117,8 +122,8 @@ export class ExternalMovieService {
       const movies = response.data.results;
       
       if (!movies) {
-        logger.warn(`TMDB returned no results for query: ${query}`);
-        return [];
+      logger.warn(`TMDB returned no results for query: ${query}, More details: ${JSON.stringify(response?.data, null, 2)}`);
+      return [];
       }
       
       return Promise.all(
@@ -156,12 +161,12 @@ export class ExternalMovieService {
       });
 
       const movies = response.data.Search;
-
+      
       if (!movies) {
-        logger.warn(`OMDB returned no results for query: ${query}`);
-        return [];
+      logger.warn(`OMDB returned no results for query: ${query}, More details: ${JSON.stringify(response?.data, null, 2)}`);
+      return [];
       }
-
+      
       return movies.map((movie) => ({
         name: movie.Title,
         poster: movie.Poster || '',

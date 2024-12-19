@@ -2,7 +2,11 @@
   "name": "server",
   "version": "1.0.0",
   "type": "module",
-  "extensions": { "ts": ["node"] },
+  "extensions": {
+    "ts": [
+      "node"
+    ]
+  },
   "main": "dist/index.js",
   "exports": {
     "import": "./dist/index.js",
@@ -16,7 +20,7 @@
     "build": "npm run clean && tsc",
     "build:dev": "tsc --watch",
     "start": "node dist/index.js",
-    "dev": "nodemon --exec node --loader ts-node/esm src/index.ts"
+    "dev": "nodemon --exec 'node --loader ts-node/esm' src/index.ts"
   },
   "keywords": [],
   "author": "Raymond Omoyakhi <raymondomoyakhi@gmail.com>",
@@ -55,7 +59,7 @@
     "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-prettier": "^5.2.1",
     "globals": "^15.11.0",
-    "nodemon": "^3.1.7",
+    "nodemon": "^3.1.9",
     "prettier": "^3.3.3",
     "ts-node": "^10.9.2",
     "ts-node-dev": "^2.0.0",

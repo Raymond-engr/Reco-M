@@ -12,9 +12,9 @@ export function handleExternalServiceError(serviceName: string, error: any): nev
       }
       logger.error(`${serviceName} API error:`, error.response.data);
       throw new ExternalServiceAPIError(
-        `${serviceName} API Error ${error.response.status}`,
-        error.response.status,
-        error.response.data
+        `${serviceName} API Error ${error.response?.status}`,
+        error.response?.status,
+        error.response?.data
       );
     } else if (error.request) {
       logger.error(`${serviceName} API Request Error`, error.request);

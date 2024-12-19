@@ -4,13 +4,13 @@ const options: swaggerJsdoc.Options = {
   definition: {
     openapi: '3.0.0',
     info: {
-      title: 'Google-Ai-Pro',
+      title: 'Reco-M',
       version: '1.0.0',
-      description: 'API documentation for Google-Ai-Pro',
+      description: 'API documentation for Reco-M',
     },
     servers: [
       {
-        url: 'https://google-ai-pro-api.onrender.com',
+        url: 'https://localhost:3000',
         description: 'Development server',
       },
     ],

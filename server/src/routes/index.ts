@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import aiSearch from '../Search_with_AI/routes/ai-search.routes.js';
+import searchHistory from '../Search_with_AI/routes/searchHistory.route.js';
 
 const router = Router();
 /**
@@ -39,5 +40,6 @@ const router = Router();
  */
 
 router.use('/aiSearch', aiSearch);
+router.use('/search-history', searchHistory);
 
 export default router;

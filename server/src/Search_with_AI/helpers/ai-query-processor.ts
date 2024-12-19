@@ -4,7 +4,6 @@ import type { IMovies } from '../../types/types.js';
 import logger from '../../utils/logger.js';
 const pLimit = await import('p-limit').then(mod => mod.default);
 
-// Enum for Query Types
 enum QueryType {
   RECOMMENDATION = 'recommendation',
   SPECIFIC_THEME = 'specific_theme',
@@ -12,7 +11,6 @@ enum QueryType {
   GENERIC_SEARCH = 'generic_search'
 }
 
-// Query Analysis Result Interface
 interface QueryAnalysisResult {
   type: QueryType;
   intent: string;
@@ -20,14 +18,12 @@ interface QueryAnalysisResult {
   additionalContext: Record<string, any>;
 }
 
-// Movie Response Interface
 interface MovieResponse {
-  type: 'single' | 'multiple';
+  type: 'single' | 'multiple' | 'none';
   results: IMovies[];
   explanation?: string;
 }
 
-// Configuration Interface
 interface MovieSearchConfig {
   maxTitlesToSearch?: number;
   cacheTTL?: number;
@@ -35,12 +31,11 @@ interface MovieSearchConfig {
   concurrentSearchLimit?: number;
 }
 
-// Simple In-Memory Cache
 class MovieSearchCache {
   private cache: Map<string, { data: any, timestamp: number }>;
   private ttl: number;
 
-  constructor(ttl: number = 14400000) { // 4 hours default
+  constructor(ttl: number = 14400000) {
     this.cache = new Map();
     this.ttl = ttl;
   }
@@ -63,7 +58,6 @@ class MovieSearchCache {
     
     if (!entry) return null;
     
-    // Check if entry is expired
     if (Date.now() - entry.timestamp > this.ttl) {
       this.cache.delete(cacheKey);
       return null;
@@ -72,7 +66,6 @@ class MovieSearchCache {
     return entry.data;
   }
 
-  // Normalize key to handle case and trim
   private normalizeKey(key: string): string {
     return key.toLowerCase().trim();
   }
@@ -92,25 +85,21 @@ class IntelligentMovieQueryHandler {
     this.genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
     this.externalMovieService = new ExternalMovieService();
     
-    // Default configuration
     this.config = {
-      maxTitlesToSearch: 5, // Limit to 5 titles per search
-      cacheTTL: 14400000, // 4 hours cache
+      maxTitlesToSearch: 10,
+      cacheTTL: 14400000,
       cacheEnabled: true,
-      concurrentSearchLimit: 8,
+      concurrentSearchLimit: 10,
       ...config
     };
 
     this.cache = new MovieSearchCache(this.config.cacheTTL);
   }
 
-  // Main query processing method
   async processQuery(query: string): Promise<MovieResponse> {
     try {
-      // Step 1: Analyze Query Intent
       const queryAnalysis = await this.analyzeQueryIntent(query);
 
-      // Step 2: Generate Appropriate Response Based on Intent
       switch (queryAnalysis.type) {
         case QueryType.RECOMMENDATION:
           return this.generateRecommendation(queryAnalysis);
@@ -126,11 +115,10 @@ class IntelligentMovieQueryHandler {
       }
     } catch (error) {
       logger.error('Movie Query Processing Error', error);
-      return { type: 'multiple', results: [] };
+      return { type: 'none', results: [] };
     }
   }
 
-  // Analyze Query Intent Using Gemini
   private async analyzeQueryIntent(query: string): Promise<QueryAnalysisResult> {
     try {
       const model = this.genAI.getGenerativeModel({ model: 'gemini-pro' });
@@ -145,7 +133,9 @@ class IntelligentMovieQueryHandler {
       - additionalContext: (any extra contextual information)`;
 
       const result = await model.generateContent(prompt);
-      const response = result.response.text();
+      const response = await result.response.text();
+      
+      logger.info('Raw Query Analysis Result', { response })
       
       const parsedResponse = this.extractAndParseJSON(response);
 
@@ -161,7 +151,6 @@ class IntelligentMovieQueryHandler {
     }
   }
 
-  // Generate Personalized Movie Recommendation
   private async generateRecommendation(analysis: QueryAnalysisResult): Promise<MovieResponse> {
     try {
       const model = this.genAI.getGenerativeModel({ model: 'gemini-pro' });
@@ -177,30 +166,45 @@ class IntelligentMovieQueryHandler {
         .split(',')
         .map(title => title.trim())
         .filter(title => title);
+        
+        logger.info('Recommended_Titles', recommendedTitles);
 
-      const limit = pLimit(this.config.concurrentSearchLimit || 8);
+      const limit = pLimit(this.config.concurrentSearchLimit || 10);
       
       const searchForTitle = async (title: string) => {
         try {
-          // Check cache first if enabled
           if (this.config.cacheEnabled) {
             const cachedResult = this.cache.get(title);
             if (cachedResult) return cachedResult;
           }
 
-          const [tmdb, omdb] = await Promise.all([
+          const [tmdb, omdb] = await Promise.allSettled([
             this.externalMovieService.searchTMDB(title),
             this.externalMovieService.searchOMDB(title)
           ]);
           
-          // Cache the result if caching is enabled
-          if (this.config.cacheEnabled) {
-            this.cache.set(title, { tmdb, omdb });
+          const tmdbResult = tmdb.status === 'fulfilled' ? tmdb.value : null;
+          const omdbResult = omdb.status === 'fulfilled' ? omdb.value : null;
+          
+          if (tmdb.status === 'rejected') {
+          logger.error('TMDB search failed:', tmdb.reason);
+          }
+          if (omdb.status === 'rejected') {
+          logger.error('OMDB search failed:', omdb.reason);
           }
 
-          return { tmdb, omdb };
+          if (!tmdbResult && !omdbResult) {
+          throw new Error('Both TMDB and OMDB searches failed');
+            
+          }
+          
+          if (this.config.cacheEnabled) {
+            this.cache.set(title, { tmdb: tmdbResult, omdb: omdbResult });
+          }
+
+          return { tmdb: tmdbResult, omdb: omdbResult };
         } catch (error) {
-          logger.warn(`Failed to search for title: ${title}`, error);
+          logger.warn(`Failed to search for Recommended title: ${title}`, error);
           return null;
         }
       };
@@ -224,11 +228,10 @@ class IntelligentMovieQueryHandler {
       };
     } catch (error) {
       logger.error('Recommendation Generation Error', error);
-      return { type: 'multiple', results: [] };
+      return { type: 'none', results: [] };
     }
   }
 
-  // Find Movies by Specific Theme
   private async findMoviesByTheme(analysis: QueryAnalysisResult): Promise<MovieResponse> {
     try {
       const model = this.genAI.getGenerativeModel({ model: 'gemini-pro' });
@@ -244,30 +247,44 @@ class IntelligentMovieQueryHandler {
         .split(',')
         .map(title => title.trim())
         .filter(title => title);
+        
+        logger.info('Theme_Titles', themeTitles);
 
-      const limit = pLimit(this.config.concurrentSearchLimit || 8);
+      const limit = pLimit(this.config.concurrentSearchLimit || 10);
 
       const searchForTitle = async (title: string) => {
         try {
-          // Check cache first if enabled
           if (this.config.cacheEnabled) {
             const cachedResult = this.cache.get(title);
             if (cachedResult) return cachedResult;
           }
 
-          const [tmdb, omdb] = await Promise.all([
+          const [tmdb, omdb] = await Promise.allSettled([
             this.externalMovieService.searchTMDB(title),
             this.externalMovieService.searchOMDB(title)
           ]);
           
-          // Cache the result if caching is enabled
-          if (this.config.cacheEnabled) {
-            this.cache.set(title, { tmdb, omdb });
+          const tmdbResult = tmdb.status === 'fulfilled' ? tmdb.value : null;
+          const omdbResult = omdb.status === 'fulfilled' ? omdb.value : null;
+          
+          if (tmdb.status === 'rejected') {
+          logger.error('TMDB search failed:', tmdb.reason);
+          }
+          if (omdb.status === 'rejected') {
+          logger.error('OMDB search failed:', omdb.reason);
           }
 
-          return { tmdb, omdb };
+          if (!tmdbResult && !omdbResult) {
+          throw new Error('Both TMDB and OMDB searches failed');
+          }
+          
+          if (this.config.cacheEnabled) {
+            this.cache.set(title, { tmdb: tmdbResult, omdb: omdbResult });
+          }
+
+          return { tmdb: tmdbResult, omdb: omdbResult };
         } catch (error) {
-          logger.warn(`Failed to search for title: ${title}`, error);
+          logger.warn(`Failed to search for Theme title: ${title}`, error);
           return null;
         }
       };
@@ -291,11 +308,10 @@ class IntelligentMovieQueryHandler {
       };
     } catch (error) {
       logger.error('Theme-based Search Error', error);
-      return { type: 'multiple', results: [] };
+      return { type: 'none', results: [] };
     }
   }
 
-  // Find Movie by Specific Plot Description
   private async findMovieByPlot(analysis: QueryAnalysisResult): Promise<MovieResponse> {
     try {
       const model = this.genAI.getGenerativeModel({ model: 'gemini-pro' });
@@ -310,30 +326,44 @@ class IntelligentMovieQueryHandler {
         .split(',')
         .map(title => title.trim())
         .filter(title => title);
-
-      const limit = pLimit(this.config.concurrentSearchLimit || 8);
+        
+        logger.info('Plot_Titles', plotTitles);
+        
+      const limit = pLimit(this.config.concurrentSearchLimit || 10);
 
       const searchForTitle = async (title: string) => {
         try {
-          // Check cache first if enabled
           if (this.config.cacheEnabled) {
             const cachedResult = this.cache.get(title);
             if (cachedResult) return cachedResult;
           }
 
-          const [tmdb, omdb] = await Promise.all([
+          const [tmdb, omdb] = await Promise.allSettled([
             this.externalMovieService.searchTMDB(title),
             this.externalMovieService.searchOMDB(title)
           ]);
           
-          // Cache the result if caching is enabled
-          if (this.config.cacheEnabled) {
-            this.cache.set(title, { tmdb, omdb });
+          const tmdbResult = tmdb.status === 'fulfilled' ? tmdb.value : null;
+          const omdbResult = omdb.status === 'fulfilled' ? omdb.value : null;
+          
+          if (tmdb.status === 'rejected') {
+          logger.error('TMDB search failed:', tmdb.reason);
+          }
+          if (omdb.status === 'rejected') {
+          logger.error('OMDB search failed:', omdb.reason);
           }
 
-          return { tmdb, omdb };
+          if (!tmdbResult && !omdbResult) {
+          throw new Error('Both TMDB and OMDB searches failed');
+          }
+          
+          if (this.config.cacheEnabled) {
+            this.cache.set(title, { tmdb: tmdbResult, omdb: omdbResult });
+          }
+
+          return { tmdb: tmdbResult, omdb: omdbResult };
         } catch (error) {
-          logger.warn(`Failed to search for title: ${title}`, error);
+          logger.warn(`Failed to search for Plot title: ${title}`, error);
           return null;
         }
       };
@@ -357,7 +387,7 @@ class IntelligentMovieQueryHandler {
       };
     } catch (error) {
       logger.error('Plot-based Movie Search Error', error);
-      return { type: 'multiple', results: [] };
+      return { type: 'none', results: [] };
     }
   }
   
@@ -378,16 +408,29 @@ class IntelligentMovieQueryHandler {
       }
 
       // Perform concurrent searches
-      const [tmdbResults, omdbResults] = await Promise.all([
+      const [tmdbResults, omdbResults] = await Promise.allSettled([
         this.externalMovieService.searchTMDB(searchQuery),
         this.externalMovieService.searchOMDB(searchQuery)
       ]);
+      
+      const tmdb = tmdbResults.status === 'fulfilled' ? tmdbResults.value : null;
+      const omdb = omdbResults.status === 'fulfilled' ? omdbResults.value : null;
+      
+      if (tmdbResults.status === 'rejected') {
+      logger.error('TMDB search failed:', tmdbResults.reason);
+      }
+      if (omdbResults.status === 'rejected') {
+      logger.error('OMDB search failed:', omdbResults.reason);
+      }
+
+       if (!tmdb && !omdb) {
+       throw new Error('Both TMDB and OMDB searches failed');
+          }
 
       const combinedResults = this.externalMovieService.mergeDedupResults([
-        tmdbResults, 
-        omdbResults
+        tmdb || [], 
+        omdb || []
       ]);
-
       
       const rankedResults = await this.verifyAndRankResults(combinedResults, analysis.intent);
       
@@ -403,7 +446,7 @@ class IntelligentMovieQueryHandler {
       };
     } catch (error) {
       logger.error('Generic Search Error', error);
-      return { type: 'multiple', results: [] };
+      return { type: 'none', results: [] };
     }
   }
   
@@ -449,7 +492,6 @@ class IntelligentMovieQueryHandler {
     }
   }
 
-  // Fallback query analysis
   private fallbackQueryAnalysis(query: string): QueryAnalysisResult {
     return {
       type: QueryType.GENERIC_SEARCH,
@@ -459,7 +501,6 @@ class IntelligentMovieQueryHandler {
     };
   }
 
-  // Map string to QueryType enum
   private mapQueryType(type: string): QueryType {
     const typeMap: Record<string, QueryType> = {
       'recommendation': QueryType.RECOMMENDATION,
@@ -470,7 +511,6 @@ class IntelligentMovieQueryHandler {
     return typeMap[type.toLowerCase()] || QueryType.GENERIC_SEARCH;
   }
 
-  // Reorder results based on AI-generated ranking
   private reorderResultsByRanking(
     results: IMovies[], 
     rankedTitles: string[]
