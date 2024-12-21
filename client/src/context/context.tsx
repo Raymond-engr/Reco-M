@@ -9,6 +9,7 @@ interface ContextType {
   isLoading: boolean;
   error: { show: boolean; msg: string };
   movies:  Movie[] | null;
+  loadMore: () => void;
   query: string;
   setQuery: React.Dispatch<React.SetStateAction<string>>;
 }
@@ -17,10 +18,10 @@ const AppContext = React.createContext<ContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [query, setQuery] = useState('batman');
-  const { isLoading, error, data: movies } = useFetch(`&s=${query}`);
+  const { isLoading, error, data: movies, loadMore } = useFetch(`&s=${query}`);
 
   return (
-    <AppContext.Provider value={{ isLoading, error, movies, query, setQuery }}>
+    <AppContext.Provider value={{ isLoading, error, movies, loadMore, query, setQuery }}>
       {children}
     </AppContext.Provider>
   );
