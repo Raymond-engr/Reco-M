@@ -1,6 +1,7 @@
 import React, { useContext, useState, ReactNode } from 'react';
-import { Movie } from "../components/Movies";
+import { Movies } from '../components/MovieCard';
 import useFetch from '../hooks/useFetch';
+import { Movie } from '../components/SingleMovie';
 
 const API_KEY = import.meta.env.VITE_API_KEY;
 export const API_ENDPOINT = `https://www.omdbapi.com/?apikey=${API_KEY}`;
@@ -8,7 +9,7 @@ export const API_ENDPOINT = `https://www.omdbapi.com/?apikey=${API_KEY}`;
 interface ContextType {
   isLoading: boolean;
   error: { show: boolean; msg: string };
-  movies:  Movie[] | null;
+  movies:  Movies[] | Movie | null;
   loadMore: () => void;
   query: string;
   setQuery: React.Dispatch<React.SetStateAction<string>>;

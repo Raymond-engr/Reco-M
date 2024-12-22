@@ -2,7 +2,7 @@ import React from 'react';
 import { useParams, Link } from 'react-router-dom';
 import useFetch from '../hooks/useFetch';
 
-interface Movie {
+export interface Movie {
   Poster: string;
   Title: string;
   Plot: string;
@@ -18,7 +18,7 @@ const placeholderImage =
 
 const SingleMovie: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const { isLoading, error, data: movie } = useFetch<Movie>(`&i=${id}`);
+  const { isLoading, error, data: movie } = useFetch(`&i=${id}`);
 
   if (isLoading) {
     return <div className="loading-spinner">Loading...</div>;
@@ -28,7 +28,19 @@ const SingleMovie: React.FC = () => {
     return (
       <div className="text-center p-8">
         <h1 className="text-2xl font-bold mb-4">{error.msg}</h1>
-         <p className="text-sm mb-4">The movie could not be found. Please check the ID or try again later.</p>
+        <p className="text-sm mb-4">The movie could not be found. Please check the ID or try again later.</p>
+        <Link to="/" className="bg-primary-5 text-white rounded px-4 py-2 tracking-sm">
+          Back to Movies
+        </Link>
+      </div>
+    );
+  }
+
+  if (!movie || Array.isArray(movie)) {
+    return (
+      <div className="text-center p-8">
+        <h1 className="text-2xl font-bold mb-4">Movie not found</h1>
+        <p className="text-sm mb-4">The movie could not be found. Please check the ID or try again later.</p>
         <Link to="/" className="bg-primary-5 text-white rounded px-4 py-2 tracking-sm">
           Back to Movies
         </Link>

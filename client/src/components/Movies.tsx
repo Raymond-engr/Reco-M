@@ -1,5 +1,4 @@
 import React from 'react';
-import LazyLoad from 'react-lazyload';
 import { Link } from 'react-router-dom';
 import { useGlobalContext } from '../context/context';
 import SkeletonLoader from './SkeletonLoader';
@@ -14,9 +13,17 @@ const Movies: React.FC = () => {
 
   return (
     <section className="movies grid gap-8 w-[90vw] max-w-screen-xl mx-auto pb-20 pt-12 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-      {movies?.map((movie) => {
-        return <MovieCard key={movie.imdbID} movie={movie} />;
-      })}
+      {Array.isArray(movies) && (
+        movies.map((movie) => (
+          <Link
+            to={`/movies/${movie.imdbID}`}
+            key={movie.imdbID}
+            className="block"
+          >
+            <MovieCard movie={movie} />
+          </Link>
+        ))
+      )}
       <div className="w-full flex justify-center mt-8">
         <button
           onClick={loadMore}
