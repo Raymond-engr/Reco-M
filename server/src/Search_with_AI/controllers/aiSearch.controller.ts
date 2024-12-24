@@ -38,20 +38,24 @@ export const getAiMovie = asyncHandler(async (req: Request, res: Response) => {
       explanation: response.explanation || `Search results for: ${query}`,
     });
   } catch (error: any) {
-    logger.error(`AI Search error: ${error.message}`, { error });
-
-    if (error instanceof GeminiAPIError) {
-      if (error.statusCode === 429) {
-        throw new RateLimitError('Gemini API rate limit exceeded', error.details?.retryAfter);
-      } else {
-        throw new GeminiAPIError('Error processing Gemini API request', error.statusCode, error.details);
-      }
-    }
-
-    if (error instanceof ExternalServiceAPIError) {
-      throw new ExternalServiceAPIError('Error with external movie service', error.statusCode, error.details);
-    }
-
-    throw new Error('Internal server error');
+    handleAiSearchError(error);
   }
 });
+
+const handleAiSearchError = (error: any): never => {
+  logger.error(`AI Search error: ${error.message}`, { error });
+
+  if (error instanceof GeminiAPIError) {
+    if (error.statusCode === 429) {
+      throw new RateLimitError('Gemini API rate limit exceeded', error.details?.retryAfter);
+    } else {
+      throw new GeminiAPIError('Error processing Gemini API request', error.statusCode, error.details);
+    }
+  }
+
+  if (error instanceof ExternalServiceAPIError) {
+    throw new ExternalServiceAPIError('Error with external movie service', error.statusCode, error.details);
+  }
+
+  throw new Error('Internal server error');
+};

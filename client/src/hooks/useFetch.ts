@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { API_ENDPOINT } from '../context/context';
+import axios from 'axios';
 import { Movies } from '../components/MovieCard';
 import { Movie } from '../components/SingleMovie';
 
@@ -8,7 +8,22 @@ interface FetchError {
   msg: string;
 }
 
-const useFetch = (urlParams: string): { isLoading: boolean; error: FetchError; data: Movies[] | Movie | null; loadMore: () => void; } => {
+const API_KEY = import.meta.env.VITE_API_KEY;
+const API_ENDPOINT = 'https://www.omdbapi.com';
+
+axios.defaults.baseURL = API_ENDPOINT;
+
+const api = axios.create({
+  baseURL: API_ENDPOINT,
+  timeout: 5000,
+});
+
+const useFetch = (urlParams: string): { 
+  isLoading: boolean; 
+  error: FetchError; 
+  data: Movies[] | Movie | null; 
+  loadMore: () => void; 
+} => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<FetchError>({ show: false, msg: '' });
   const [data, setData] = useState<Movies[] | Movie | null>(null);
@@ -17,8 +32,8 @@ const useFetch = (urlParams: string): { isLoading: boolean; error: FetchError; d
   const fetchMovies = async (url: string) => {
     setIsLoading(true);
     try {
-      const response = await fetch(url + `&page=${page}`);
-      const result = await response.json();
+      const response = await api.get(`/?apikey=${API_KEY}${url}&page=${page}`);
+      const result = response.data;
 
       if (result.Response === 'True') {
         setData(prev => {
@@ -32,8 +47,11 @@ const useFetch = (urlParams: string): { isLoading: boolean; error: FetchError; d
       } else {
         setError({ show: true, msg: result.Error });
       }
-    } catch {
-      setError({ show: true, msg: 'Something went wrong' });
+    } catch (err) {
+      const errorMessage = axios.isAxiosError(err)
+        ? err.response?.data?.Error || err.message
+        : 'Something went wrong';
+      setError({ show: true, msg: errorMessage });
     } finally {
       setIsLoading(false);
     }
@@ -42,7 +60,7 @@ const useFetch = (urlParams: string): { isLoading: boolean; error: FetchError; d
   const loadMore = () => setPage(prev => prev + 1);
 
   useEffect(() => {
-    fetchMovies(`${API_ENDPOINT}${urlParams}`);
+    fetchMovies(urlParams);
   }, [urlParams, page]);
 
   return { isLoading, error, data, loadMore };

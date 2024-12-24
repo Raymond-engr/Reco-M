@@ -8,7 +8,7 @@ const Movies: React.FC = () => {
   const { movies, isLoading, loadMore } = useGlobalContext();
 
   if (isLoading) {
-    return <SkeletonLoader count={8} />;
+    return <SkeletonLoader count={6} />;
   }
 
   return (
