@@ -60,14 +60,7 @@ const SearchWithAI: React.FC= () => {
       const response: AxiosResponse<ApiResponse> = await axios.get(`${API_URL}/api/v1/aiSearch`, {
         params: { q: query },
       });
-      setResponseData(response.results);
-      console.log(responseData);
-      console.log(responseData.results);
-      console.log(responseData.explanation);
-      console.log(response.data);
-      console.log(responseData);
-      console.log(responseData.results);
-      console.log(responseData.explanation);
+      setResponseData(response.data);
       
       
     } catch (err: unknown) {
