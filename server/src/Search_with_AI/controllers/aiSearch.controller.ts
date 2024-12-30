@@ -10,7 +10,8 @@ const movieQueryHandler = new IntelligentMovieQueryHandler();
 const searchHistoryManager = new SearchHistoryManager();
 
 export const getAiMovie = asyncHandler(async (req: Request, res: Response) => {
-  const { q: query, userId } = (req as Request & { validatedQuery: ValidatedRequest }).validatedQuery;
+  const { q: query } = (req as Request & { validatedQuery: ValidatedRequest }).validatedQuery;
+  const userId = req.user._id;
 
   if (!query) {
     throw new BadRequestError('Query is required');

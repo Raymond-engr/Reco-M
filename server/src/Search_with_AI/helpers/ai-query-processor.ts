@@ -135,7 +135,7 @@ class IntelligentMovieQueryHandler {
       const result = await model.generateContent(prompt);
       const response = await result.response.text();
       
-      logger.info('Raw Query Analysis Result', { response })
+      logger.info('Raw Query Analysis Result', { response });
       
       const parsedResponse = this.extractAndParseJSON(response);
 
@@ -167,7 +167,7 @@ class IntelligentMovieQueryHandler {
         .map(title => title.trim())
         .filter(title => title);
         
-        logger.info('Recommended_Titles', recommendedTitles);
+      logger.info('Recommended_Titles', recommendedTitles);
 
       const limit = pLimit(this.config.concurrentSearchLimit || 10);
       
@@ -187,14 +187,14 @@ class IntelligentMovieQueryHandler {
           const omdbResult = omdb.status === 'fulfilled' ? omdb.value : null;
           
           if (tmdb.status === 'rejected') {
-          logger.error('TMDB search failed:', tmdb.reason);
+            logger.error('TMDB search failed:', tmdb.reason);
           }
           if (omdb.status === 'rejected') {
-          logger.error('OMDB search failed:', omdb.reason);
+            logger.error('OMDB search failed:', omdb.reason);
           }
 
           if (!tmdbResult && !omdbResult) {
-          throw new Error('Both TMDB and OMDB searches failed');
+            throw new Error('Both TMDB and OMDB searches failed');
             
           }
           
@@ -248,7 +248,7 @@ class IntelligentMovieQueryHandler {
         .map(title => title.trim())
         .filter(title => title);
         
-        logger.info('Theme_Titles', themeTitles);
+      logger.info('Theme_Titles', themeTitles);
 
       const limit = pLimit(this.config.concurrentSearchLimit || 10);
 
@@ -268,14 +268,14 @@ class IntelligentMovieQueryHandler {
           const omdbResult = omdb.status === 'fulfilled' ? omdb.value : null;
           
           if (tmdb.status === 'rejected') {
-          logger.error('TMDB search failed:', tmdb.reason);
+            logger.error('TMDB search failed:', tmdb.reason);
           }
           if (omdb.status === 'rejected') {
-          logger.error('OMDB search failed:', omdb.reason);
+            logger.error('OMDB search failed:', omdb.reason);
           }
 
           if (!tmdbResult && !omdbResult) {
-          throw new Error('Both TMDB and OMDB searches failed');
+            throw new Error('Both TMDB and OMDB searches failed');
           }
           
           if (this.config.cacheEnabled) {
@@ -327,7 +327,7 @@ class IntelligentMovieQueryHandler {
         .map(title => title.trim())
         .filter(title => title);
         
-        logger.info('Plot_Titles', plotTitles);
+      logger.info('Plot_Titles', plotTitles);
         
       const limit = pLimit(this.config.concurrentSearchLimit || 10);
 
@@ -347,14 +347,14 @@ class IntelligentMovieQueryHandler {
           const omdbResult = omdb.status === 'fulfilled' ? omdb.value : null;
           
           if (tmdb.status === 'rejected') {
-          logger.error('TMDB search failed:', tmdb.reason);
+            logger.error('TMDB search failed:', tmdb.reason);
           }
           if (omdb.status === 'rejected') {
-          logger.error('OMDB search failed:', omdb.reason);
+            logger.error('OMDB search failed:', omdb.reason);
           }
 
           if (!tmdbResult && !omdbResult) {
-          throw new Error('Both TMDB and OMDB searches failed');
+            throw new Error('Both TMDB and OMDB searches failed');
           }
           
           if (this.config.cacheEnabled) {
@@ -417,15 +417,15 @@ class IntelligentMovieQueryHandler {
       const omdb = omdbResults.status === 'fulfilled' ? omdbResults.value : null;
       
       if (tmdbResults.status === 'rejected') {
-      logger.error('TMDB search failed:', tmdbResults.reason);
+        logger.error('TMDB search failed:', tmdbResults.reason);
       }
       if (omdbResults.status === 'rejected') {
-      logger.error('OMDB search failed:', omdbResults.reason);
+        logger.error('OMDB search failed:', omdbResults.reason);
       }
 
-       if (!tmdb && !omdb) {
-       throw new Error('Both TMDB and OMDB searches failed');
-          }
+      if (!tmdb && !omdb) {
+        throw new Error('Both TMDB and OMDB searches failed');
+      }
 
       const combinedResults = this.externalMovieService.mergeDedupResults([
         tmdb || [], 

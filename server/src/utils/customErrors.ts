@@ -30,6 +30,12 @@ class UnauthorizedError extends AppError {
     super(message, 401);
   }
 }
+
+class ForbiddenError extends AppError {
+  constructor(message: string) {
+    super(message, 403);
+  }
+}
   
 class GeminiAPIError extends AppError {
   constructor(message: string, statusCode: number, details?: any) {
@@ -55,4 +61,4 @@ class ExternalServiceAPIError extends AppError {
   details?: any;
 }
   
-export { AppError, BadRequestError, NotFoundError, UnauthorizedError, GeminiAPIError, RateLimitError, ExternalServiceAPIError };
+export { AppError, BadRequestError, NotFoundError, UnauthorizedError, GeminiAPIError, RateLimitError, ExternalServiceAPIError, ForbiddenError };

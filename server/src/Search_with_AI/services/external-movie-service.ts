@@ -61,8 +61,7 @@ export class ExternalMovieService {
   }
 
   private async fetchTMDBGenres(): Promise<void> {
-    if (this.tmdbGenreMap.size > 0)
-    logger.info('returning cached TMDB genres');
+    if (this.tmdbGenreMap.size > 0) logger.info('returning cached TMDB genres');
     return;
 
     try {
@@ -86,7 +85,7 @@ export class ExternalMovieService {
       const [detailsResponse, creditsResponse] = await Promise.all([
         axios.get<TMDBDetailedMovie>(`https://api.themoviedb.org/3/movie/${movieId}`, {
           params: { api_key: this.tmdbApiKey,
-          append_to_response: 'keywords' },
+            append_to_response: 'keywords' },
         }),
         axios.get<TMDBCredits>(`https://api.themoviedb.org/3/movie/${movieId}/credits`, {
           params: { api_key: this.tmdbApiKey },
@@ -122,8 +121,8 @@ export class ExternalMovieService {
       const movies = response.data.results;
       
       if (!movies) {
-      logger.warn(`TMDB returned no results for query: ${query}, More details: ${JSON.stringify(response?.data, null, 2)}`);
-      return [];
+        logger.warn(`TMDB returned no results for query: ${query}, More details: ${JSON.stringify(response?.data, null, 2)}`);
+        return [];
       }
       
       return Promise.all(
@@ -163,8 +162,8 @@ export class ExternalMovieService {
       const movies = response.data.Search;
       
       if (!movies) {
-      logger.warn(`OMDB returned no results for query: ${query}, More details: ${JSON.stringify(response?.data, null, 2)}`);
-      return [];
+        logger.warn(`OMDB returned no results for query: ${query}, More details: ${JSON.stringify(response?.data, null, 2)}`);
+        return [];
       }
       
       return movies.map((movie) => ({

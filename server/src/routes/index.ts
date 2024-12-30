@@ -1,6 +1,9 @@
 import { Router } from 'express';
 import aiSearch from '../Search_with_AI/routes/ai-search.routes.js';
 import searchHistory from '../Search_with_AI/routes/searchHistory.route.js';
+import authRoutes from './auth.routes.js';
+import userRoutes from './user.routes.js';
+import { authenticateToken } from '../middleware/auth.middleware.js';
 
 const router = Router();
 /**
@@ -38,8 +41,9 @@ const router = Router();
  *                 error:
  *                   type: string
  */
-
-router.use('/aiSearch', aiSearch);
-router.use('/search-history', searchHistory);
+router.use('/auth', authRoutes);
+router.use('/user', authenticateToken, userRoutes);
+router.use('/aiSearch', authenticateToken, aiSearch);
+router.use('/search-history', authenticateToken, searchHistory);
 
 export default router;

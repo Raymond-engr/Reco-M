@@ -9,12 +9,21 @@ import notFound from './middleware/notFound.js';
 import { corsOptions, helmetOptions, rateLimitOptions } from './utils/securityConfig.js';
 import logger from './utils/logger.js';
 import swaggerSpec from './utils/swaggerConfig.js';
+import morgan from 'morgan';
 
 const app: Application = express();
 
 app.use(helmet(helmetOptions));
 app.use(cors(corsOptions));
 app.use(rateLimit(rateLimitOptions));
+app.use(morgan('combined', {
+  stream: {
+    write: (message: string) => {
+      logger.info(message.trim()); 
+    },
+  },
+})
+);
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));

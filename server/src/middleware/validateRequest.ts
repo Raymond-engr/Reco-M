@@ -5,7 +5,6 @@ import { BadRequestError } from '../utils/customErrors.js';
 
 export interface ValidatedRequest {
     q: string;
-    userId?: string;
 }
 
 const validateRequest = (schema: Schema, source: 'query' | 'body' | 'params' = 'query') => {
