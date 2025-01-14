@@ -2,6 +2,8 @@ import mongoose, { Document, Schema } from 'mongoose';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 
+const PEPPER = process.env.PASSWORD_PEPPER
+
 export interface IUser extends Document {
   name: string;
   email: string;
@@ -17,7 +19,6 @@ export interface IUser extends Document {
   watchlist: mongoose.Types.ObjectId[];
   searchHistory: mongoose.Types.ObjectId[];
   lastLogin?: Date;
-  
   // Methods
   comparePassword(candidatePassword: string): Promise<boolean>;
   generateVerificationToken(): string;
@@ -42,7 +43,7 @@ const UserSchema: Schema<IUser> = new Schema({
   password: {
     type: String,
     minlength: [8, 'Password must be at least 8 characters'],
-    select: false, // Don't return password in queries
+    select: false,
     required: function() {
       return !this.googleId; // Password required only if not using Google auth
     }
@@ -50,7 +51,7 @@ const UserSchema: Schema<IUser> = new Schema({
   googleId: {
     type: String,
     unique: true,
-    sparse: true // Allows null/undefined values
+    sparse: true
   },
   isEmailVerified: {
     type: Boolean,
@@ -76,29 +77,35 @@ const UserSchema: Schema<IUser> = new Schema({
   }],
   lastLogin: Date
 }, {
-  timestamps: true
+  timestamps: true,
+  indexes: [
+    { email: 1 },
+    { googleId: 1 },
+    { refreshToken: 1 },
+    { verificationToken: 1 },
+    { resetPasswordToken: 1 }
+  ]
 });
 
-// Password hashing middleware
 UserSchema.pre('save', async function(next) {
   if (!this.isModified('password') || !this.password) return next();
   
   try {
+    const pepperedPassword = this.password + PEPPER;
     const salt = await bcrypt.genSalt(10);
-    this.password = await bcrypt.hash(this.password, salt);
+    this.password = await bcrypt.hash(pepperedPassword, salt);
     next();
   } catch (error: any) {
     next(error);
   }
 });
 
-// Method to compare passwords
 UserSchema.methods.comparePassword = async function(candidatePassword: string): Promise<boolean> {
   if (!this.password) return false;
-  return bcrypt.compare(candidatePassword, this.password);
+  const pepperedPassword = candidatePassword + PEPPER;
+  return bcrypt.compare(pepperedPassword, this.password);
 };
 
-// Generate verification token
 UserSchema.methods.generateVerificationToken = function(): string {
   const token = crypto.randomBytes(32).toString('hex');
   this.verificationToken = crypto
@@ -109,7 +116,6 @@ UserSchema.methods.generateVerificationToken = function(): string {
   return token;
 };
 
-// Generate password reset token
 UserSchema.methods.generatePasswordResetToken = function(): string {
   const token = crypto.randomBytes(32).toString('hex');
   this.resetPasswordToken = crypto

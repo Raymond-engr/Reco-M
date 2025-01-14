@@ -21,6 +21,7 @@ const validateEnv = (): void => {
     SMTP_USER: str(),
     SMTP_PASS: str(),
     EMAIL_FROM: email(),
+    PASSWORD_PEPPER: str(),
   });
 };
 

@@ -10,13 +10,11 @@ class AuthController {
   register = asyncHandler(async (req: Request, res: Response) => {
     const { name, email, password } = (req as any).validated.body;
 
-    // Check if user exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       throw new BadRequestError('Email already registered');
     }
 
-    // Create user
     const user = await User.create({
       name,
       email,
@@ -44,21 +42,26 @@ class AuthController {
     }
 
     if (!user.isEmailVerified) {
-      throw new UnauthorizedError('Please verify your email first');
+      const hasValidToken = user.verificationTokenExpires &&  user.verificationTokenExpires > new Date();
+
+      return res.status(401).json({
+        success: false,
+        code: 'EMAIL_NOT_VERIFIED',
+        message: 'Please verify your email address first',
+        canResend: !hasValidToken || (Date.now() - user.verificationTokenExpires.getTime()) >= 5 * 60 * 1000
+      });
     }
 
-    // Generate tokens
+
     const tokens = tokenService.generateTokens({
       userId: user._id,
       email: user.email
     });
 
-    // Save refresh token
     user.refreshToken = tokens.refreshToken;
     user.lastLogin = new Date();
     await user.save();
 
-    // Set refresh token cookie and send response
     tokenService.setRefreshTokenCookie(res, tokens.refreshToken);
     res.json({
       success: true,
@@ -143,7 +146,38 @@ class AuthController {
 
   resendVerification = asyncHandler(async (req: Request, res: Response) => {
     const { email } = (req as any).validated.body;
-    // Resend verification logic here
+    const user = await User.findOne({ email });
+    if (!user) {
+      throw new BadRequestError('No user found with this email address');
+    }
+
+    if (user.isEmailVerified) {
+      throw new BadRequestError('Email is already verified');
+    }
+    
+    if (
+      user.verificationTokenExpires &&
+      user.verificationTokenExpires > new Date() &&
+      user.verificationToken
+    ) {
+      const timeSinceLastToken = Date.now() - user.verificationTokenExpires.getTime();
+      const waitTime = 5 * 60 * 1000;
+      const timeRemaining = waitTime - timeSinceLastToken;
+      
+      if (timeRemaining > 0) {
+        const remainingSeconds = Math.ceil(timeRemaining / 1000);
+        const minutes = Math.floor(remainingSeconds / 60);
+        const seconds = remainingSeconds % 60;
+    
+        let message = '';
+        if (minutes > 0) {
+          message = `Please wait ${minutes} minute${minutes > 1 ? 's' : ''} and ${seconds} second${seconds > 1 ? 's' : ''} before requesting another verification email.`;
+        } else {
+          message = `Please wait ${seconds} second${seconds > 1 ? 's' : ''} before requesting another verification email.`;
+        }
+        throw new BadRequestError(message);
+      }
+    }
   });
 
   forgotPassword = asyncHandler(async (req: Request, res: Response) => {
@@ -205,8 +239,8 @@ class AuthController {
     if (!user || user.refreshToken !== refreshToken) {
       throw new UnauthorizedError('Invalid refresh token');
     }
-
-    const tokens = tokenService.generateTokens({
+    
+    const tokens = tokenService.rotateRefreshToken(refreshToken, {
       userId: user._id,
       email: user.email
     });

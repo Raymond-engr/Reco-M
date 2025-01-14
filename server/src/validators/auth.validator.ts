@@ -36,3 +36,16 @@ export const emailSchema = z.object({
     email: z.string().email('Invalid email address')
   })
 });
+
+export const updateProfileSchema = z.object({
+  body: z.object({
+    name: z.string().min(2).max(50).optional('Enter your username'),
+    email: z.string().email().optional('Invalid email address')
+  })
+});
+
+export const watchlistSchema = z.object({
+  body: z.object({
+    movieId: z.string().nonempty('Movie ID is required')
+  })
+});
